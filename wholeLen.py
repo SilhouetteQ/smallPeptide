@@ -28,7 +28,10 @@ def threeNTCount(sam):
     # seqID = df1['transcript_id'].to_list()
     # dID += [item[:15] for item in seqID]
     # print(len(set(dID)))
+
     return df1
+
+
 def findORF(re2, orfCutoff, cutStart):
     substring = re.findall('(ATG)((\w\w\w)*?)((TAA)|(TGA)|(TAG))', re2)
     sindex = [m.start() + 1 for m in re.finditer('(ATG)((\w\w\w)*?)((TAA)|(TGA)|(TAG))', re2)]
