@@ -38,6 +38,7 @@ def findORF(re2, orfCutoff, cutStart):
     # print(len(substring[0][0] + substring[0][1] + substring[0][3]))
     # print(sindex)
     ssDict = {}
+    print('hi')
     # each key has corresponding values at most 3 and at least 1
     for num, sstr in enumerate(sindex):
         # store ORF start and corresponding sequence in a dictionary
@@ -199,7 +200,7 @@ y_pred = model.predict_classes(X_test, verbose=0)
 
 from sklearn.metrics.cluster import contingency_matrix
 print(contingency_matrix(y_test, y_pred))
-print(roc_auc_score(y_test, y_pred))
-print(f1_score(y_test, y_pred))
+# print(roc_auc_score(y_test, y_pred))
+# print(f1_score(y_test, y_pred))
 
 
