@@ -1,3 +1,4 @@
+### ln -s  ~/data/data/  ~/Project/
 import re
 import pickle
 import sys
@@ -13,8 +14,8 @@ def load_obj(name):
     with open('../model/' + name + '.pkl', 'rb') as f:
         return pickle.load(f)
 def threeNTCount(sam):
-    # threeNTPath = '../../../data/' + sam + '/ribo/final_RiboCode_ORFs_result.txt'
-    threeNTPath = '../../../data/' + sam + '/ribo/RiboCode_ORFs_result.txt'
+    threeNTPath = '../../../data/' + sam + '/ribo/final_RiboCode_ORFs_result.txt'
+    # threeNTPath = '../../../data/' + sam + '/ribo/RiboCode_ORFs_result.txt'
     df = pd.read_table(threeNTPath, low_memory = False)
     df1 = df.loc[df['gene_type'] == 'lncRNA', ['transcript_id', 'ORF_tstart', 'ORF_tstop']]
     dID = []
@@ -31,14 +32,12 @@ def threeNTCount(sam):
 
     return df1
 
-
 def findORF(re2, orfCutoff, cutStart):
     substring = re.findall('(ATG)((\w\w\w)*?)((TAA)|(TGA)|(TAG))', re2)
     sindex = [m.start() + 1 for m in re.finditer('(ATG)((\w\w\w)*?)((TAA)|(TGA)|(TAG))', re2)]
     # print(len(substring[0][0] + substring[0][1] + substring[0][3]))
     # print(sindex)
     ssDict = {}
-    print('hi')
     # each key has corresponding values at most 3 and at least 1
     for num, sstr in enumerate(sindex):
         # store ORF start and corresponding sequence in a dictionary
@@ -74,8 +73,8 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
                 continue
             re2 = ''.join(re.split('\n', seq)[1:])
             sindex, qualify = findORF(re2, orfCutoff, cutStart) # find qualified ORF
-            if len(re2) > 15000:
-                continue
+            # if len(re2) > 15000:
+            #     continue
             if len(qualify) < cutRank+1:
                 continue
             t_id1.append(id)
@@ -109,16 +108,16 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
             seq = seqDict[id]
             re2 = ''.join(re.split('\n', seq)[1:])
             sindex, qualify = findORF(re2, orfCutoff, cutStart)
-            if len(re2) > 15000:
-                continue
+            # if len(re2) > 15000:
+            #     continue
             if len(qualify) < cutRank + 1:
                 continue
             wholeLen.append(re2)
             t_id.append(id)
         save_obj(set(wholeLen), sam + 'wCUT' + type)
         return wholeLen, t_id
-# seqUpDown('liver', 'ribo', 10, 10, 50, 0)
-# seqUpDown('liver', 'rna', 10, 10, 50, 0)
+seqUpDown('liver', 'ribo', 15, 15, 50, 0)
+seqUpDown('liver', 'rna', 15, 15, 50, 0)
 
 pos = load_obj('liver' + 'wCUT' + 'ribo')
 neg = load_obj('liver' + 'wCUT' + 'rna')
