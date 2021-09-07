@@ -130,11 +130,8 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
             re2 = ''.join(re.split('\n', seq)[1:])
             seqLen = len(re2)
             sindex, qualify = findORF(re2, orfCutoff, cutStart)
-<<<<<<< HEAD
             # if len(re2) > 15000:
             #     continue
-=======
->>>>>>> a35f70aaaeda3610f98579735510186416d0b5a5
             if len(qualify) < cutRank + 1:
                 continue
             # wholeLen.append(re2)
@@ -160,11 +157,9 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
         print(len(set(wholeLen)))
         print(len(set(t_id)))
         save_obj(set(wholeLen), sam + 'wCUT' + type)
-<<<<<<< HEAD
         return wholeLen, t_id
-=======
         # return wholeLen, t_id
->>>>>>> a35f70aaaeda3610f98579735510186416d0b5a5
+
 seqUpDown('liver', 'ribo', 15, 15, 50, 0)
 seqUpDown('liver', 'rna', 15, 15, 50, 0)
 
