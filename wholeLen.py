@@ -13,8 +13,8 @@ def load_obj(name):
     with open('../model/' + name + '.pkl', 'rb') as f:
         return pickle.load(f)
 def threeNTCount(sam):
-    # threeNTPath = '../../../data/' + sam + '/ribo/final_RiboCode_ORFs_result.txt'
-    threeNTPath = '../../../data/' + sam + '/ribo/RiboCode_ORFs_result.txt'
+    threeNTPath = '../../../data/' + sam + '/ribo/final_RiboCode_ORFs_result.txt'
+    # threeNTPath = '../../../data/' + sam + '/ribo/RiboCode_ORFs_result.txt'
     df = pd.read_table(threeNTPath, low_memory = False)
     df1 = df.loc[df['gene_type'] == 'lncRNA', ['transcript_id', 'ORF_tstart', 'ORF_tstop']]
     dID = []
@@ -28,9 +28,7 @@ def threeNTCount(sam):
     # seqID = df1['transcript_id'].to_list()
     # dID += [item[:15] for item in seqID]
     # print(len(set(dID)))
-
     return df1
-
 
 def findORF(re2, orfCutoff, cutStart):
     substring = re.findall('(ATG)((\w\w\w)*?)((TAA)|(TGA)|(TAG))', re2)
@@ -38,7 +36,6 @@ def findORF(re2, orfCutoff, cutStart):
     # print(len(substring[0][0] + substring[0][1] + substring[0][3]))
     # print(sindex)
     ssDict = {}
-    print('hi')
     # each key has corresponding values at most 3 and at least 1
     for num, sstr in enumerate(sindex):
         # store ORF start and corresponding sequence in a dictionary
@@ -61,7 +58,8 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
         emptySeq = ['ENST00000675070', 'ENST00000408966', 'ENST00000536039', 'ENST00000235290']
         t_id = []
         t_id1 = []
-        wholeLen = []
+        pre = []
+        post = []
         for i, id in enumerate(seqInfo['t_id']):
             if id in emptySeq: # this is the ENST transcript that can not be downloaded
                 continue
@@ -73,19 +71,39 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
             if cut < cutStart + 1: # remove transcripts that having 5`UTR length shorter than cutLen
                 continue
             re2 = ''.join(re.split('\n', seq)[1:])
+            seqLen = len(re2)
             sindex, qualify = findORF(re2, orfCutoff, cutStart) # find qualified ORF
-            if len(re2) > 15000:
-                continue
+            # if len(re2) > 15000:
+            #     continue
             if len(qualify) < cutRank+1:
                 continue
             t_id1.append(id)
+            thresh = 1000
             if sindex[cutRank] == cut:
                 t_id.append(id)
-                wholeLen.append(re2)
+                if cut < thresh:
+                    pre.append(re2[:cut-1])
+                    if seqLen - cut < thresh + 3:
+                        post.append(re2[(cut+2):])
+                    else:
+                        post.append(re2[(cut+2):(cut+2+thresh)])
+                else:
+                    pre.append(re2[(cut-thresh-1):(cut-1)])
+                    if seqLen - cut < thresh + 3:
+                        post.append(re2[(cut + 2):])
+                    else:
+                        post.append(re2[(cut+2):(cut+2+thresh)])
+
+        padPre = [line.rjust(thresh, '0') for line in pre]
+        padPost = [line.ljust(thresh, '0') for line in post]
+        wholeLen = list(map(lambda x, y: x + 'ATG' + y, padPre, padPost))
+        print(len(set(wholeLen)))
+        print(len(set(t_id)))
+        print(len(set(t_id1)))
         print('All possible unique transcript ID: ', len(set(t_id1)))
         print('Unique transcript ID on site ', cutRank, ' : ', len(set(t_id)))
         save_obj(set(wholeLen), sam + 'wCUT' + type)
-        return wholeLen, t_id
+        # return wholeLen, t_id
     if type == 'rna':
         seqDict = load_obj('rnaCountFasta')
         emptySeq = load_obj('missingrnaCountFasta')
@@ -100,7 +118,8 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
             seqID = seqInfo['transcript_id'].to_list()
             threeNTdID += [item[:15] for item in seqID]
         dID = [value for value in odID if value not in threeNTdID]
-        wholeLen = []
+        pre = []
+        post = []
         t_id = []
         t_id1 = []
         for i, id in enumerate(dID):
@@ -108,17 +127,36 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
                 continue
             seq = seqDict[id]
             re2 = ''.join(re.split('\n', seq)[1:])
+            seqLen = len(re2)
             sindex, qualify = findORF(re2, orfCutoff, cutStart)
-            if len(re2) > 15000:
-                continue
             if len(qualify) < cutRank + 1:
                 continue
-            wholeLen.append(re2)
+            # wholeLen.append(re2)
             t_id.append(id)
+            cut = sindex[cutRank]
+            thresh = 1000
+            if cut < thresh:
+                pre.append(re2[:cut-1])
+                if seqLen - cut < thresh + 3:
+                    post.append(re2[(cut+2):])
+                else:
+                    post.append(re2[(cut+2):(cut+2+thresh)])
+            else:
+                pre.append(re2[(cut-thresh-1):(cut-1)])
+                if seqLen - cut < thresh + 3:
+                    post.append(re2[(cut + 2):])
+                else:
+                    post.append(re2[(cut+2):(cut+2+thresh)])
+
+        padPre = [line.rjust(thresh, '0') for line in pre]
+        padPost = [line.ljust(thresh, '0') for line in post]
+        wholeLen = list(map(lambda x, y: x + 'ATG' + y, padPre, padPost))
+        print(len(set(wholeLen)))
+        print(len(set(t_id)))
         save_obj(set(wholeLen), sam + 'wCUT' + type)
-        return wholeLen, t_id
-# seqUpDown('liver', 'ribo', 10, 10, 50, 0)
-# seqUpDown('liver', 'rna', 10, 10, 50, 0)
+        # return wholeLen, t_id
+seqUpDown('liver', 'ribo', 15, 15, 50, 0)
+seqUpDown('liver', 'rna', 15, 15, 50, 0)
 
 pos = load_obj('liver' + 'wCUT' + 'ribo')
 neg = load_obj('liver' + 'wCUT' + 'rna')
@@ -133,6 +171,7 @@ if len(overlap) > 0:
 		neg.remove(str(item))
 print('need to n-gram %d seqs' % len(pos))
 print('need to n-gram %d seqs' % len(neg))
+
 def upseq2ngram(X, k):
     XK = []
     for line in X:
@@ -144,14 +183,18 @@ def upseq2ngram(X, k):
             if i + k >= l + 1:
                 break
             kTmp = ''.join(line[i:i + k])
+            if '0' in kTmp:
+                kTmp = '0' * k
             kmer += kTmp
             kmer += ' '
         kmer += '\n'
         XK.append(kmer)
     return XK
 
-posK = upseq2ngram(pos, 4)
-negK = upseq2ngram(neg, 4)
+k = 3
+posK = upseq2ngram(pos,k)
+negK = upseq2ngram(neg,k)
+
 # pos_seqs = posK.split('\n')
 pos_seqs = [line[:-2] for line in posK]
 neg_seqs = [line[:-1] for line in negK]
@@ -168,12 +211,13 @@ from keras.layers import Embedding
 from keras.preprocessing.sequence import pad_sequences
 from keras import callbacks
 
-
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(seqs)
 sequences = tokenizer.texts_to_sequences(seqs)
 vocab_size = len(tokenizer.word_index) + 1
+tokenizer.word_index['0'* k] = 0
 pad_seq = pad_sequences(sequences, maxlen=max_length, padding='post')
+seqlen = [len(line) for line in sequences]
 
 X = pad_seq
 y = np.array([1] * len(pos_seqs) + [0] * len(neg_seqs))
@@ -200,7 +244,7 @@ y_pred = model.predict_classes(X_test, verbose=0)
 
 from sklearn.metrics.cluster import contingency_matrix
 print(contingency_matrix(y_test, y_pred))
-# print(roc_auc_score(y_test, y_pred))
-# print(f1_score(y_test, y_pred))
+print(roc_auc_score(y_test, y_pred))
+print(f1_score(y_test, y_pred))
 
 
