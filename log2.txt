@@ -1,0 +1,12 @@
+/home/qihua/Project/smallPeptide/pythonCode/bio3.7
+success
+success
+dimension of positive data (258, 35)
+dimension of negative data (714, 35)
+dimension of all data (972, 33)
+(680, 33)
+(292, 33)
+Training set score: 0.888235294117647
+Test set score: 0.7602739726027398
+{'n_estimators': 80}
+EasyEnsembleClassifier(n_estimators=80)

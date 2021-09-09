@@ -51,7 +51,6 @@ def findORF(re2, orfCutoff, cutStart):
             sindex.remove(item)
     return sindex, ssDict
 
-sam = 'fibroblast'
 def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
     if type == 'ribo':
         seqDict = load_obj('threeNTFasta')
@@ -79,10 +78,11 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
 
             if len(qualify) < cutRank+1:
                 continue
-            t_id1.append(id)
             if sindex[cutRank] == cut:
+                ## b & c
                 t_id.append(id)
-                # wholeLen.append(seq)
+                ## b
+                # wholeLen.append(re2)
                 if cut < thresh:
                     pre.append(re2[:cut-1])
                     if seqLen - cut < thresh + 3:
@@ -95,8 +95,12 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
                         post.append(re2[(cut + 2):])
                     else:
                         post.append(re2[(cut+2):(cut+2+thresh)])
+            ## a
+            # t_id.append(id)
+            # wholeLen.append(re2)
         padPre = [line.rjust(thresh, '0') for line in pre]
         padPost = [line.ljust(thresh, '0') for line in post]
+        ## c
         wholeLen = list(map(lambda x, y: x + 'ATG' + y, padPre, padPost))
         print(len(set(wholeLen)))
         print(len(set(t_id)))
@@ -122,7 +126,6 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
         pre = []
         post = []
         t_id = []
-        t_id1 = []
         wholeLen = []
         for i, id in enumerate(dID):
             if id in emptySeq:
@@ -135,8 +138,9 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
             #     continue
             if len(qualify) < cutRank + 1:
                 continue
-            # wholeLen.append(seq)
             t_id.append(id)
+            # a & b
+            # wholeLen.append(re2)
             cut = sindex[cutRank]
             if cut < thresh:
                 pre.append(re2[:cut-1])
@@ -152,6 +156,7 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
                     post.append(re2[(cut+2):(cut+2+thresh)])
         padPre = [line.rjust(thresh, '0') for line in pre]
         padPost = [line.ljust(thresh, '0') for line in post]
+        ## c
         wholeLen = list(map(lambda x, y: x + 'ATG' + y, padPre, padPost))
         print(len(set(wholeLen)))
         print(len(set(t_id)))
@@ -185,8 +190,6 @@ def writeFasta(sam, type, cutLen, cutStart, orfCutoff, cutRank, enst=True):
             f1.write('\n')
             # f1.write(item)
         f1.close()
-writeFasta(sam, 'ribo', 15, 15, 50, 0)
-writeFasta(sam, 'rna', 15, 15, 50, 0)
 
 def upseq2ngram(X, k):
     XK = []
@@ -341,8 +344,8 @@ def knn(X_train, y_train, X_test, y_test, cv):
     print('Training set score: ' + str(grid.score(X_train, y_train)))
     print('Test set score: ' + str(grid.score(X_test, y_test)))
     return grid
-
 def rf(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import BalancedRandomForestClassifier
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.feature_selection import VarianceThreshold  # Feature selector
     from sklearn.pipeline import Pipeline
@@ -350,7 +353,7 @@ def rf(X_train, y_train, X_test, y_test, cv):
     from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
     print(X_train.shape)
     print(X_test.shape)
-    model = RandomForestClassifier()
+    model = BalancedRandomForestClassifier()
     parameters = {
         'bootstrap': [True],
         'max_depth': [60, 70, 80],
@@ -364,17 +367,62 @@ def rf(X_train, y_train, X_test, y_test, cv):
     print('Training set score: ' + str(grid.score(X_train, y_train)))
     print('Test set score: ' + str(grid.score(X_test, y_test)))
     return grid
-
+def bag(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import BalancedBaggingClassifier
+    from sklearn.feature_selection import VarianceThreshold  # Feature selector
+    from sklearn.pipeline import Pipeline
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
+    print(X_train.shape)
+    print(X_test.shape)
+    model = BalancedBaggingClassifier()
+    parameters = {
+        'bootstrap': [True],
+        'n_estimators': [30, 40, 50]
+    }
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def rus(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import RUSBoostClassifier
+    from sklearn.model_selection import GridSearchCV
+    print(X_train.shape)
+    print(X_test.shape)
+    model = RUSBoostClassifier()
+    parameters = {
+        'n_estimators': [20, 50, 80]
+    }
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def ens(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import EasyEnsembleClassifier
+    from sklearn.model_selection import GridSearchCV
+    print(X_train.shape)
+    print(X_test.shape)
+    model = EasyEnsembleClassifier()
+    parameters = {
+        'n_estimators': [70, 80, 90]
+    }
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
 def svm(X_train, y_train, X_test, y_test, cv):
     from sklearn.feature_selection import VarianceThreshold  # Feature selector
     from sklearn.svm import SVC
     from sklearn.model_selection import GridSearchCV
+    from sklearn.model_selection import RandomizedSearchCV
     from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
-
     parameters = {'kernel': ['rbf'], 'gamma': [0.1, 0.01, 1e-3, 1e-4],
                   'C': [1, 10, 100, 1000], 'class_weight': ['balanced', None]}
+    from sklearn.utils.fixes import loguniform
+    parameters = {'C': loguniform(1e0, 1e3), 'gamma': loguniform(1e-4, 1e-3),
+                  'kernel': ['rbf'], 'class_weight': ['balanced', None]}
     model = SVC()
-    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    grid = RandomizedSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
     print('Training set score: ' + str(grid.score(X_train, y_train)))
     print('Test set score: ' + str(grid.score(X_test, y_test)))
     return grid
@@ -385,7 +433,6 @@ def curated():
     from sklearn.model_selection import train_test_split, GridSearchCV, RepeatedStratifiedKFold
     from sklearn.metrics.cluster import contingency_matrix
     from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, f1_score
-
     sys.path.append("../../../../lncRNAIdentification")
     from sequence_attributes_orf import SequenceAttributes
     # from sequence_attributes_kmer import SequenceAttributes
@@ -420,86 +467,40 @@ def curated():
         X, y, test_size=0.3, random_state=10, stratify=y)
 
     cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=1)
-    # grid = knn(X_train, y_train, X_test, y_test, cv)
+    grid = knn(X_train, y_train, X_test, y_test, cv)
     grid = rf(X_train, y_train, X_test, y_test, cv)
-    # grid = svm(X_train, y_train, X_test, y_test, cv)
+    grid = bag(X_train, y_train, X_test, y_test, cv)
+    grid = rus(X_train, y_train, X_test, y_test, cv)
+    grid = ens(X_train, y_train, X_test, y_test, cv)
+    grid = svm(X_train, y_train, X_test, y_test, cv)
 
-    # Access the best set of parameters
-    best_params = grid.best_params_
+    # # Access the best set of parameters
+    # best_params = grid.best_params_
     # print(best_params)
     # # Stores the optimum model in best_pipe
     # best_pipe = grid.best_estimator_
     # print(best_pipe)
-    #
+
     # result_df = pd.DataFrame.from_dict(grid.cv_results_, orient='columns')
     # print(result_df.columns)
-    sys.exit()
 
-    from sklearn.linear_model import Lasso
-    from sklearn.linear_model import LassoCV
-    from sklearn.model_selection import RepeatedStratifiedKFold
-    # model = Lasso()
-    # define model evaluation method
+# curated()
+for sam in ['breast', 'fibroblast', 'HEK293_2', 'liver']:
+    writeFasta(sam, 'ribo', 15, 15, 50, 0)
+    writeFasta(sam, 'rna', 15, 15, 50, 0)
+    print(sam)
+    curated()
 
-    # define model
-    model = LassoCV(alphas=arange(0, 1, 0.01), cv=cv, n_jobs=-1)
-    # fit model
-    model.fit(X, y)
-
-    y_pred = model.predict(X_test)
-    y_pred = list(map(lambda x: 0 if x < 0.5 else 1, y_pred))
-    print(contingency_matrix(y_test, y_pred))
-    print(f1_score(y_test, y_pred))
-    print(accuracy_score(y_test, y_pred))
-    # print(classification_report(y_test, y_pred))
-
-
-    # from sklearn.model_selection import StratifiedKFold
-    # kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=1)
-
-    from sklearn.model_selection import cross_val_score
-
-    # from imblearn.ensemble import BalancedBaggingClassifier
-
-    # from imblearn.ensemble import BalancedRandomForestClassifier
-    # from imblearn.ensemble import EasyEnsembleClassifier
-    # model = EasyEnsembleClassifier(n_estimators=5)
-    # model = BalancedBaggingClassifier()
-    model = RandomForestClassifier(n_estimators=5)
-    # define evaluation procedure
-    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=1)
-    # evaluate model
-    scores = cross_val_score(model, X, y, scoring='roc_auc', cv=cv, n_jobs=-1)
-    print('Mean ROC AUC: %.3f' % mean(scores))
-
-    # X1 = np.vstack((X_train,X_test))
-    # X1[:, 0] = np.append(y_train, y_test)
-    #
-    # unique_rows, indices, occurrence_count = np.unique(
-    #     X1, axis = 0, return_counts = True, return_index = True)
-    #
-    # uX_test = unique_rows[indices > X_train.shape[0]-1]
-    # # print(uX_test[:, 0])
-    # y_test =  np.copy(uX_test[:, 0])
-    # uX_test[:, 0] = 0
-    # print(X_train.shape)
-    # print(uX_test.shape)
-
-    # from sklearn import metrics, svm
-    # from sklearn.svm import SVC
-    # model = GridSearchCV(estimator=SVC(),
-    #                      param_grid= {'kernel': ['rbf'], 'C': [1, 10, 100, 1000],
-    #               'gamma': [0.1, 0.01, 0.001, 0.0001]},
-    #                      cv = kfold).fit(X_train, y_train)
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    # print(classification_report(y_test, y_pred))
-    print(contingency_matrix(y_test, y_pred))
-    print(roc_auc_score(y_test, y_pred))
-    print(f1_score(y_test, y_pred))
-    # from xgb_attributes import XGBAttributes
-    # xgbselect = XGBAttributes(X_train, 'svm')
-    # f = xgbselect.attributes()
-    # print(xgbselect)
-    # print(f)
-curated()
+### remove repeats in X_train and X_test
+# X1 = np.vstack((X_train,X_test))
+# X1[:, 0] = np.append(y_train, y_test)
+#
+# unique_rows, indices, occurrence_count = np.unique(
+#     X1, axis = 0, return_counts = True, return_index = True)
+#
+# uX_test = unique_rows[indices > X_train.shape[0]-1]
+# # print(uX_test[:, 0])
+# y_test =  np.copy(uX_test[:, 0])
+# uX_test[:, 0] = 0
+# print(X_train.shape)
+# print(uX_test.shape)
