@@ -81,10 +81,12 @@ def rnaRiboOverlap():
     rit = ribo['breast'].append(ribo['fibroblast']).append(ribo['HEK293_2']).append(ribo['liver'])
     rit = [item[:15] for item in rit]
     dID = [value for value in rnt if value in rit]
+    from matplotlib_venn import venn2, venn3
+    venn2((len(set(rit)), len(set(rnt)), len(set(dID))), ['Ribo-Seq', 'RNA-Seq'])
+    plt.show()
 
-# from matplotlib_venn import venn2, venn3
-# venn2((len(set(rit)), len(set(rnt)), len(set(dID))), ['Ribo-Seq', 'RNA-Seq'])
-# plt.show()
+rnaRiboOverlap()
+
 
 alignment = {'horizontalalignment':'center', 'verticalalignment':'baseline'}
 def venn4(data=None, names=None, output=None, fill="number", show_names=True, show_plot=True, **kwds):
@@ -247,8 +249,8 @@ def riboCountLength():
 # riboCountLength()
 
 def threeNTCount(sam):
-    # threeNTPath = '../../../data/' + sam + '/ribo/final_RiboCode_ORFs_result.txt'
-    threeNTPath = '../../../data/' + sam + '/ribo/RiboCode_ORFs_result.txt'
+    threeNTPath = '../../../data/' + sam + '/ribo/final_RiboCode_ORFs_result.txt'
+    # threeNTPath = '../../../data/' + sam + '/ribo/RiboCode_ORFs_result.txt'
     df = pd.read_table(threeNTPath, low_memory = False)
     df1 = df.loc[df['gene_type'] == 'lncRNA', ['transcript_id', 'ORF_tstart', 'ORF_tstop']]
     dID = []
@@ -269,8 +271,8 @@ def threeNTCount(sam):
 
 def threeNTDownload(sam):
     dID = []
-    seqDict = {}
-    missing = []
+    # seqDict = {}
+    # missing = []
     for s in sam:
         seqInfo = threeNTCount(s)
         seqID = seqInfo['transcript_id'].to_list()
@@ -282,20 +284,20 @@ def threeNTDownload(sam):
     # dID += [item[:15] for item in seqID]
     seqDict = load_obj('threeNTFasta')
     missing = load_obj('missingthreeNTFasta')
-    # print(len(set(seqDict.keys())))
-    # server = "https://rest.ensembl.org"
-    # for seq in set(dID):
-    #     if seq in seqDict.keys():
-    #         continue
-    #     ext = "/sequence/id/" + seq + "?type=cdna"
-    #     r = requests.get(server + ext, headers={"Content-Type": "text/x-fasta"})
-    #     if not r.ok:
-    #         print(seq)
-    #         missing.append(seq)
-    #         continue
-    #     seqDict[seq] = r.text
-    #     save_obj(seqDict, 'threeNTFasta')
-    #     save_obj(missing, 'missingthreeNTFasta')
+    print(len(set(seqDict.keys())))
+    server = "https://rest.ensembl.org"
+    for seq in set(dID):
+        if seq in seqDict.keys():
+            continue
+        ext = "/sequence/id/" + seq + "?type=cdna"
+        r = requests.get(server + ext, headers={"Content-Type": "text/x-fasta"})
+        if not r.ok:
+            print(seq)
+            missing.append(seq)
+            continue
+        seqDict[seq] = r.text
+        save_obj(seqDict, 'threeNTFasta')
+        save_obj(missing, 'missingthreeNTFasta')
 # threeNTDownload('liver')
 # threeNTDownload(['breast', 'fibroblast', 'HEK293_2', 'liver'])
 # empty seq = ['ENST00000675070', 'ENST00000408966', 'ENST00000536039', 'ENST00000235290']

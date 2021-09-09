@@ -1,4 +1,4 @@
-### ln -s  ~/data/data/  ~/Project/
+### python 3.8
 import re
 import pickle
 import sys
@@ -51,7 +51,7 @@ def findORF(re2, orfCutoff, cutStart):
             sindex.remove(item)
     return sindex, ssDict
 
-def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
+def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank, thresh = 1000):
     if type == 'ribo':
         seqDict = load_obj('threeNTFasta')
         seqInfo = threeNTCount(sam)
@@ -61,6 +61,7 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
         t_id1 = []
         pre = []
         post = []
+        wholeLen = []
         for i, id in enumerate(seqInfo['t_id']):
             if id in emptySeq: # this is the ENST transcript that can not be downloaded
                 continue
@@ -74,14 +75,14 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
             re2 = ''.join(re.split('\n', seq)[1:])
             seqLen = len(re2)
             sindex, qualify = findORF(re2, orfCutoff, cutStart) # find qualified ORF
-            # if len(re2) > 15000:
-            #     continue
+
             if len(qualify) < cutRank+1:
                 continue
-            t_id1.append(id)
-            thresh = 1000
             if sindex[cutRank] == cut:
+                ## b & c
                 t_id.append(id)
+                ## b
+                # wholeLen.append(re2)
                 if cut < thresh:
                     pre.append(re2[:cut-1])
                     if seqLen - cut < thresh + 3:
@@ -94,17 +95,20 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
                         post.append(re2[(cut + 2):])
                     else:
                         post.append(re2[(cut+2):(cut+2+thresh)])
-
+            ## a
+            # t_id.append(id)
+            # wholeLen.append(re2)
         padPre = [line.rjust(thresh, '0') for line in pre]
         padPost = [line.ljust(thresh, '0') for line in post]
+        ## c
         wholeLen = list(map(lambda x, y: x + 'ATG' + y, padPre, padPost))
         print(len(set(wholeLen)))
         print(len(set(t_id)))
         print(len(set(t_id1)))
         print('All possible unique transcript ID: ', len(set(t_id1)))
         print('Unique transcript ID on site ', cutRank, ' : ', len(set(t_id)))
-        save_obj(set(wholeLen), sam + 'wCUT' + type)
-        # return wholeLen, t_id
+        # save_obj(set(wholeLen), sam + 'wCUT' + type)
+        return wholeLen, t_id
     if type == 'rna':
         seqDict = load_obj('rnaCountFasta')
         emptySeq = load_obj('missingrnaCountFasta')
@@ -122,7 +126,7 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
         pre = []
         post = []
         t_id = []
-        t_id1 = []
+        wholeLen = []
         for i, id in enumerate(dID):
             if id in emptySeq:
                 continue
@@ -134,10 +138,10 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
             #     continue
             if len(qualify) < cutRank + 1:
                 continue
-            # wholeLen.append(re2)
             t_id.append(id)
+            # a & b
+            # wholeLen.append(re2)
             cut = sindex[cutRank]
-            thresh = 1000
             if cut < thresh:
                 pre.append(re2[:cut-1])
                 if seqLen - cut < thresh + 3:
@@ -150,32 +154,42 @@ def seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank):
                     post.append(re2[(cut + 2):])
                 else:
                     post.append(re2[(cut+2):(cut+2+thresh)])
-
         padPre = [line.rjust(thresh, '0') for line in pre]
         padPost = [line.ljust(thresh, '0') for line in post]
+        ## c
         wholeLen = list(map(lambda x, y: x + 'ATG' + y, padPre, padPost))
         print(len(set(wholeLen)))
         print(len(set(t_id)))
-        save_obj(set(wholeLen), sam + 'wCUT' + type)
+        # save_obj(set(wholeLen), sam + 'wCUT' + type)
         return wholeLen, t_id
-        # return wholeLen, t_id
+# seqUpDown(sam, 'ribo', 15, 15, 50, 0)
+# seqUpDown(sam, 'rna', 15, 15, 50, 0)
 
-seqUpDown('liver', 'ribo', 15, 15, 50, 0)
-seqUpDown('liver', 'rna', 15, 15, 50, 0)
-
-pos = load_obj('liver' + 'wCUT' + 'ribo')
-neg = load_obj('liver' + 'wCUT' + 'rna')
-## overlap detect
-overlap = [value for value in list(pos) if value in list(neg)]
-overlap = set(overlap)
-if len(overlap) > 0:
-	print('overwhelming ' + str(len(overlap)) + ' overlaps')
-	print(overlap)
-	for item in overlap:
-		# pos.remove(str(item))
-		neg.remove(str(item))
-print('need to n-gram %d seqs' % len(pos))
-print('need to n-gram %d seqs' % len(neg))
+def writeFasta(sam, type, cutLen, cutStart, orfCutoff, cutRank, enst=True):
+    cutSeq, t_id = seqUpDown(sam, type, cutLen, cutStart, orfCutoff, cutRank)
+    if enst is False:
+        seqPath = './fasta/' + sam + type + str(cutLen) + '_seqonly.fa'
+        f = open(seqPath, 'w')
+        for item in set(cutSeq):
+            f.write(item)
+            f.write('\n')
+        f.close()
+    else:
+        forMotif = './fasta/' + sam + type + str(cutLen)+ '_enst.fa'
+        f1 = open(forMotif, 'w')
+        rep = []
+        print(cutSeq[12])
+        for m, item in enumerate(cutSeq):
+            if item in rep:
+                continue
+            rep.append(item)
+            f1.write('>')
+            f1.write(t_id[m])
+            f1.write('\n')
+            f1.write(item)
+            f1.write('\n')
+            # f1.write(item)
+        f1.close()
 
 def upseq2ngram(X, k):
     XK = []
@@ -196,60 +210,297 @@ def upseq2ngram(X, k):
         XK.append(kmer)
     return XK
 
-k = 3
-posK = upseq2ngram(pos,k)
-negK = upseq2ngram(neg,k)
+def kmer_solution(sam, k):
+    pos = load_obj(sam + 'wCUT' + 'ribo')
+    neg = load_obj(sam + 'wCUT' + 'rna')
+    ## overlap detect
+    overlap = [value for value in list(pos) if value in list(neg)]
+    overlap = set(overlap)
+    if len(overlap) > 0:
+        print('overwhelming ' + str(len(overlap)) + ' overlaps')
+        print(overlap)
+        for item in overlap:
+            # pos.remove(str(item))
+            neg.remove(str(item))
+    print('need to n-gram %d seqs' % len(pos))
+    print('need to n-gram %d seqs' % len(neg))
+    posK = upseq2ngram(pos,k)
+    negK = upseq2ngram(neg,k)
+    pos_seqs = [line[:-2] for line in posK]
+    neg_seqs = [line[:-1] for line in negK]
+    seqs = pos_seqs + neg_seqs
+    max_length = max([len(s.split()) for s in seqs])
+    from keras.preprocessing.text import Tokenizer
+    from sklearn.model_selection import train_test_split, GridSearchCV
+    from keras.models import Sequential
+    from keras.layers import Dense
+    from keras.layers import LSTM
+    from keras.layers import Embedding
+    from keras.preprocessing.sequence import pad_sequences
+    from keras import callbacks
 
-# pos_seqs = posK.split('\n')
-pos_seqs = [line[:-2] for line in posK]
-neg_seqs = [line[:-1] for line in negK]
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(seqs)
+    sequences = tokenizer.texts_to_sequences(seqs)
+    vocab_size = len(tokenizer.word_index) + 1
+    tokenizer.word_index['0'* k] = 0
+    pad_seq = pad_sequences(sequences, maxlen=max_length, padding='post')
+    seqlen = [len(line) for line in sequences]
 
-seqs = pos_seqs + neg_seqs
-max_length = max([len(s.split()) for s in seqs])
+    X = pad_seq
+    y = np.array([1] * len(pos_seqs) + [0] * len(neg_seqs))
 
-from keras.preprocessing.text import Tokenizer
-from sklearn.model_selection import train_test_split, GridSearchCV
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import LSTM
-from keras.layers import Embedding
-from keras.preprocessing.sequence import pad_sequences
-from keras import callbacks
+    seq_length = X.shape[1]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.33, random_state=42)
+    model = Sequential()
+    model.add(Embedding(vocab_size, 50, input_length=seq_length))
+    # model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
+    # model.add(MaxPooling1D(pool_size=2))
+    model.add(LSTM(100, return_sequences=True))
+    model.add(LSTM(100))
+    # model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dense(1, activation='sigmoid'))
+    # model.add(Dense(vocab_size, activation='softmax'))
+    print(model.summary())
+    # compile model
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # fit model
+    model.fit(X_train, y_train, batch_size=128, epochs=60,
+              callbacks = callbacks.EarlyStopping(monitor='loss', patience=3))
 
-tokenizer = Tokenizer()
-tokenizer.fit_on_texts(seqs)
-sequences = tokenizer.texts_to_sequences(seqs)
-vocab_size = len(tokenizer.word_index) + 1
-tokenizer.word_index['0'* k] = 0
-pad_seq = pad_sequences(sequences, maxlen=max_length, padding='post')
-seqlen = [len(line) for line in sequences]
+    scores = model.evaluate(X_test, y_test, verbose=0)
+    print("Accuracy: %.2f%%" % (scores[1] * 100))
 
-X = pad_seq
-y = np.array([1] * len(pos_seqs) + [0] * len(neg_seqs))
+    sys.exit()
+    from keras.wrappers.scikit_learn import KerasClassifier
+    from sklearn.model_selection import cross_val_score
+    from sklearn.model_selection import StratifiedKFold
 
-seq_length = X.shape[1]
+    # def create_baseline():
+    #     # create model
+    #     model = Sequential()
+    #     model.add(Embedding(vocab_size, 50, input_length=seq_length))
+    #     model.add(LSTM(100, return_sequences=True))
+    #     model.add(LSTM(100))
+    #     model.add(Dense(100, activation='relu'))
+    #     model.add(Dense(1, activation='sigmoid'))
+    #     # Compile model
+    #     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['AUC'])
+    #     return model
+    # estimator = KerasClassifier(build_fn=create_baseline, epochs=60, batch_size=5, verbose=0)
+    # kfold = StratifiedKFold(n_splits=5, shuffle=True)
+    # results = cross_val_score(estimator, X, encoded_Y, cv=kfold)
+    # print("Baseline: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
 
-X_train, X_test, y_train, y_test = train_test_split(
-	X, y, test_size=0.33, random_state=42)
+    from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, f1_score
+    from sklearn.metrics.cluster import contingency_matrix
+    y_pred = model.predict(X_test)
+    seq_predictions = np.transpose(y_pred)[0]  # transformation to get (n,)
+    # Applying transformation to get binary values predictions with 0.5 as thresold
+    y_pred = list(map(lambda x: 0 if x < 0.8 else 1, seq_predictions))
+    print(contingency_matrix(y_test, y_pred))
+    print(roc_auc_score(y_test, y_pred))
+    print(f1_score(y_test, y_pred))
+    y_pred = list(map(lambda x: 0 if x < 0.6 else 1, seq_predictions))
+    print(contingency_matrix(y_test, y_pred))
+    print(roc_auc_score(y_test, y_pred))
+    print(f1_score(y_test, y_pred))
+    y_pred = list(map(lambda x: 0 if x < 0.4 else 1, seq_predictions))
+    print(contingency_matrix(y_test, y_pred))
+    print(roc_auc_score(y_test, y_pred))
+    print(f1_score(y_test, y_pred))
+    y_pred = list(map(lambda x: 0 if x < 0.2 else 1, seq_predictions))
+    print(contingency_matrix(y_test, y_pred))
+    print(roc_auc_score(y_test, y_pred))
+    print(f1_score(y_test, y_pred))
 
-model = Sequential()
-model.add(Embedding(vocab_size, 50, input_length=seq_length))
-model.add(LSTM(100, return_sequences=True))
-model.add(LSTM(100))
-model.add(Dense(100, activation='relu'))
-model.add(Dense(1, activation='sigmoid'))
-# model.add(Dense(vocab_size, activation='softmax'))
-print(model.summary())
-# compile model
-model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['AUC'])
-# fit model
-model.fit(X_train, y_train, batch_size=128, epochs=60,
-		  callbacks = callbacks.EarlyStopping(monitor='loss', patience=3))
-y_pred = model.predict_classes(X_test, verbose=0)
+    y_pred = list(map(lambda x: 0 if x < 0.1 else 1, seq_predictions))
+    print(contingency_matrix(y_test, y_pred))
+    print(roc_auc_score(y_test, y_pred))
+    print(f1_score(y_test, y_pred))
+# kmer_solution(sam,4)
 
-from sklearn.metrics.cluster import contingency_matrix
-print(contingency_matrix(y_test, y_pred))
-print(roc_auc_score(y_test, y_pred))
-print(f1_score(y_test, y_pred))
+def knn(X_train, y_train, X_test, y_test, cv):
+    from sklearn.neighbors import KNeighborsClassifier  # The k-nearest neighbor classifier
+    from sklearn.feature_selection import VarianceThreshold  # Feature selector
+    from sklearn.pipeline import Pipeline
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('selector', VarianceThreshold()),
+        ('classifier', KNeighborsClassifier())
+    ])
+    parameters = {'scaler': [StandardScaler(), MinMaxScaler(),
+                             Normalizer(), MaxAbsScaler()],
+                  'selector__threshold': [0, 0.001],
+                  'classifier__n_neighbors': [1, 3, 5, 7, 10],
+                  'classifier__p': [1, 2],
+                  'classifier__leaf_size': [1, 5, 10, 15]
+                  }
+    grid = GridSearchCV(pipe, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def rf(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import BalancedRandomForestClassifier
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.feature_selection import VarianceThreshold  # Feature selector
+    from sklearn.pipeline import Pipeline
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
+    print(X_train.shape)
+    print(X_test.shape)
+    model = BalancedRandomForestClassifier()
+    parameters = {
+        'bootstrap': [True],
+        'max_depth': [60, 70, 80],
+        'max_features': ['auto'],
+        'min_samples_leaf': [1, 3],
+        'min_samples_split': [2, 5, 10],
+        'n_estimators': [30, 40, 50]
+    }
+    # parameters = {'max_depth': [3, 5, 10], 'min_samples_split': [2, 5, 10]}
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def bag(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import BalancedBaggingClassifier
+    from sklearn.feature_selection import VarianceThreshold  # Feature selector
+    from sklearn.pipeline import Pipeline
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
+    print(X_train.shape)
+    print(X_test.shape)
+    model = BalancedBaggingClassifier()
+    parameters = {
+        'bootstrap': [True],
+        'n_estimators': [30, 40, 50]
+    }
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def rus(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import RUSBoostClassifier
+    from sklearn.model_selection import GridSearchCV
+    print(X_train.shape)
+    print(X_test.shape)
+    model = RUSBoostClassifier()
+    parameters = {
+        'n_estimators': [20, 50, 80]
+    }
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def ens(X_train, y_train, X_test, y_test, cv):
+    from imblearn.ensemble import EasyEnsembleClassifier
+    from sklearn.model_selection import GridSearchCV
+    print(X_train.shape)
+    print(X_test.shape)
+    model = EasyEnsembleClassifier()
+    parameters = {
+        'n_estimators': [70, 80, 90]
+    }
+    grid = GridSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
+def svm(X_train, y_train, X_test, y_test, cv):
+    from sklearn.feature_selection import VarianceThreshold  # Feature selector
+    from sklearn.svm import SVC
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.model_selection import RandomizedSearchCV
+    from sklearn.preprocessing import Normalizer, StandardScaler, MinMaxScaler, PowerTransformer, MaxAbsScaler
+    parameters = {'kernel': ['rbf'], 'gamma': [0.1, 0.01, 1e-3, 1e-4],
+                  'C': [1, 10, 100, 1000], 'class_weight': ['balanced', None]}
+    from sklearn.utils.fixes import loguniform
+    parameters = {'C': loguniform(1e0, 1e3), 'gamma': loguniform(1e-4, 1e-3),
+                  'kernel': ['rbf'], 'class_weight': ['balanced', None]}
+    model = SVC()
+    grid = RandomizedSearchCV(model, parameters, cv=cv).fit(X_train, y_train)
+    print('Training set score: ' + str(grid.score(X_train, y_train)))
+    print('Test set score: ' + str(grid.score(X_test, y_test)))
+    return grid
 
+def curated():
+    import sys
+    from numpy import mean, arange
+    from sklearn.model_selection import train_test_split, GridSearchCV, RepeatedStratifiedKFold
+    from sklearn.metrics.cluster import contingency_matrix
+    from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, f1_score
+    sys.path.append("../../../../lncRNAIdentification")
+    from sequence_attributes_orf import SequenceAttributes
+    # from sequence_attributes_kmer import SequenceAttributes
+    pos = SequenceAttributes('./fasta/'+sam+'ribo15_enst.fa', 1)
+    neg = SequenceAttributes('./fasta/'+sam+'rna15_enst.fa', 0)
+    # pos = SequenceAttributes('./fasta/breastfibroblastHEK293_2liverribo30_enst_Uniq.fa', 1)
+    # neg = SequenceAttributes('./fasta/breastfibroblastHEK293_2liverrna30_enst_Uniq.fa', 0)
+    pos_df = pd.DataFrame(pos.process())
+    neg_df = pd.DataFrame(neg.process())
+    # df.to_csv('trainingfile.txt', index=False)
+    # X = pd.concat([pos_df, neg_df.iloc[:pos_df.shape[0]]])
+    X = pd.concat([pos_df, neg_df])
+    y = X['class']
+    X = X.drop(columns=['id', 'class'])
+    # X = X.drop(columns=['id', 'class', 'length', 'fl', 'fp', 'll', 'lp',
+    #                     'getoentropy3', 'getoentropy4', 'getoentropy5',
+    #                     'toentropy3', 'toentropy4', 'toentropy5'])
 
+    # X, y = prepareData(sam, 5, cutLen)
+    # X[:, 0] = y
+    # unique_rows, indices, occurrence_count = np.unique(
+    #     X, axis = 0, return_counts = True, return_index = True)
+    # X = unique_rows
+    # y =  np.copy(X[:, 0])
+    # X[:, 0] = 0
+    # X = np.array(X)
+    # y = np.array(y)
+    print('dimension of positive data', pos_df.shape)
+    print('dimension of negative data', neg_df.shape)
+    print('dimension of all data', X.shape)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=10, stratify=y)
+
+    cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=1)
+    grid = knn(X_train, y_train, X_test, y_test, cv)
+    grid = rf(X_train, y_train, X_test, y_test, cv)
+    grid = bag(X_train, y_train, X_test, y_test, cv)
+    grid = rus(X_train, y_train, X_test, y_test, cv)
+    grid = ens(X_train, y_train, X_test, y_test, cv)
+    grid = svm(X_train, y_train, X_test, y_test, cv)
+
+    # # Access the best set of parameters
+    # best_params = grid.best_params_
+    # print(best_params)
+    # # Stores the optimum model in best_pipe
+    # best_pipe = grid.best_estimator_
+    # print(best_pipe)
+
+    # result_df = pd.DataFrame.from_dict(grid.cv_results_, orient='columns')
+    # print(result_df.columns)
+
+# curated()
+for sam in ['breast', 'fibroblast', 'HEK293_2', 'liver']:
+    writeFasta(sam, 'ribo', 15, 15, 50, 0)
+    writeFasta(sam, 'rna', 15, 15, 50, 0)
+    print(sam)
+    curated()
+
+### remove repeats in X_train and X_test
+# X1 = np.vstack((X_train,X_test))
+# X1[:, 0] = np.append(y_train, y_test)
+#
+# unique_rows, indices, occurrence_count = np.unique(
+#     X1, axis = 0, return_counts = True, return_index = True)
+#
+# uX_test = unique_rows[indices > X_train.shape[0]-1]
+# # print(uX_test[:, 0])
+# y_test =  np.copy(uX_test[:, 0])
+# uX_test[:, 0] = 0
+# print(X_train.shape)
+# print(uX_test.shape)
